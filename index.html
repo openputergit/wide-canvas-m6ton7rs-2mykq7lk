@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMark - Bluetooth Attendance System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .bluetooth-range {
+            animation: pulse 2s infinite;
+            background: radial-gradient(circle, rgba(59,130,246,0.5) 0%, rgba(59,130,246,0.2) 70%);
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 shadow-lg">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <h1 class="text-3xl font-bold">SmartMark</h1>
+                <div id="userInfo" class="hidden">
+                    <span id="userDisplay" class="mr-4"></span>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-sm">
+                        <i class="bi bi-box-arrow-right mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="p-4 max-w-md mx-auto mt-8">
+            <div class="glass-effect rounded-xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">Welcome to SmartMark</h2>
+                <div class="flex justify-center gap-4 mb-6">
+                    <button onclick="setUserType('teacher')" class="flex-1 py-3 px-4 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all flex items-center justify-center">
+                        <i class="bi bi-person-workspace mr-2"></i>Teacher
+                    </button>
+                    <button onclick="setUserType('student')" class="flex-1 py-3 px-4 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all flex items-center justify-center">
+                        <i class="bi bi-mortarboard mr-2"></i>Student
+                    </button>
+                </div>
+                <input type="text" id="userId" placeholder="Enter ID" class="w-full p-3 mb-4 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none">
+                <input type="password" id="password" placeholder="Password" class="w-full p-3 mb-6 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none">
+                <button onclick="login()" class="w-full py-3 px-4 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-all flex items-center justify-center">
+                    <i class="bi bi-box-arrow-in-right mr-2"></i>Login
+                </button>
+            </div>
+        </div>
+
+        <!-- Teacher Dashboard -->
+        <div id="teacherDashboard" class="p-4 max-w-4xl mx-auto mt-8 hidden">
+            <div class="glass-effect rounded-xl shadow-xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Teacher Dashboard</h2>
+                    <button onclick="showManageClassesModal()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center">
+                        <i class="bi bi-gear mr-2"></i>Manage Classes
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <select id="classSelect" class="p-3 border rounded-lg focus:ring-2 focus:ring-blue-300 outline-none">
+                        <option value="">Select Class</option>
+                    </select>
+                    <button onclick="startAttendance()" class="bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg flex items-center justify-center">
+                        <i class="bi bi-bluetooth mr-2"></i>Start Bluetooth Attendance
+                    </button>
+                </div>
+
+                <div id="bluetoothStatus" class="hidden text-center mb-6">
+                    <div class="bluetooth-range w-32 h-32 rounded-full mx-auto mb-4"></div>
+                    <p class="text-blue-600 font-semibold">Scanning for students in range...</p>
+                </div>
+
+                <div id="attendanceList" class="hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">Present Students</h3>
+                        <div class="flex gap-2">
+                            <button onclick="exportToExcel()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center">
+                                <i class="bi bi-file-earmark-spreadsheet mr-2"></i>Export to Excel
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <ul id="presentStudents"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Dashboard -->
+        <div id="studentDashboard" class="p-4 max-w-md mx-auto mt-8 hidden">
+            <div class="glass-effect rounded-xl shadow-xl p-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Student Dashboard</h2>
+                <div id="studentInfo" class="space-y-4">
+                    <div class="bg-white rounded-lg p-4">
+                        <p class="mb-2">Today's Status: 
+                            <span id="attendanceStatus" class="font-bold text-yellow-500">Not Marked</span>
+                        </p>
+                        <p>Bluetooth Status: 
+                            <span id="bluetoothStudentStatus" class="font-bold text-red-500">Inactive</span>
+                        </p>
+                    </div>
+                    <button onclick="enableStudentBluetooth()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-lg flex items-center justify-center">
+                        <i class="bi bi-bluetooth mr-2"></i>Enable Bluetooth
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUserType = '';
+        let isBluetoothScanning = false;
+        let classes = {
+            'CSE-A': ['John Doe', 'Jane Smith', 'Bob Wilson'],
+            'CSE-B': ['Alice Brown', 'Charlie Davis', 'Eva Green'],
+            'ECE-A': ['Frank Miller', 'Grace Lee', 'Henry Ford']
+        };
+
+        // Populate class select
+        function populateClasses() {
+            const select = document.getElementById('classSelect');
+            select.innerHTML = '<option value="">Select Class</option>';
+            Object.keys(classes).forEach(className => {
+                const option = document.createElement('option');
+                option.value = className;
+                option.textContent = className;
+                select.appendChild(option);
+            });
+        }
+
+        function setUserType(type) {
+            currentUserType = type;
+            document.querySelectorAll('#loginSection button').forEach(btn => {
+                btn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+            });
+            event.target.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+            event.target.classList.add('bg-green-500', 'hover:bg-green-600');
+        }
+
+        function login() {
+            const userId = document.getElementById('userId').value;
+            const password = document.getElementById('password').value;
+
+            if (!userId || !password || !currentUserType) {
+                alert('Please fill all fields and select user type');
+                return;
+            }
+
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('userDisplay').textContent = `${currentUserType.charAt(0).toUpperCase() + currentUserType.slice(1)}: ${userId}`;
+
+            if (currentUserType === 'teacher') {
+                document.getElementById('teacherDashboard').classList.remove('hidden');
+                populateClasses();
+            } else {
+                document.getElementById('studentDashboard').classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            location.reload();
+        }
+
+        function startAttendance() {
+            const selectedClass = document.getElementById('classSelect').value;
+            if (!selectedClass) {
+                alert('Please select a class');
+                return;
+            }
+
+            if (!isBluetoothScanning) {
+                document.getElementById('bluetoothStatus').classList.remove('hidden');
+                document.getElementById('attendanceList').classList.remove('hidden');
+                isBluetoothScanning = true;
+
+                const presentStudentsList = document.getElementById('presentStudents');
+                presentStudentsList.innerHTML = '';
+                
+                classes[selectedClass].forEach(student => {
+                    setTimeout(() => {
+                        const li = document.createElement('li');
+                        li.className = 'py-3 px-4 bg-green-50 rounded-lg mb-2 flex justify-between items-center';
+                        li.innerHTML = `
+                            <div class="flex items-center">
+                                <i class="bi bi-person-circle text-xl mr-3 text-gray-600"></i>
+                                ${student}
+                            </div>
+                            <i class="bi bi-check-circle-fill text-green-500 text-xl"></i>
+                        `;
+                        presentStudentsList.appendChild(li);
+                    }, Math.random() * 3000);
+                });
+            }
+        }
+
+        function exportToExcel() {
+            const selectedClass = document.getElementById('classSelect').value;
+            alert(`Attendance data for ${selectedClass} exported to Excel!`);
+        }
+
+        function enableStudentBluetooth() {
+            const statusElement = document.getElementById('bluetoothStudentStatus');
+            const attendanceStatusElement = document.getElementById('attendanceStatus');
+
+            statusElement.textContent = 'Active';
+            statusElement.className = 'font-bold text-green-500';
+            
+            setTimeout(() => {
+                attendanceStatusElement.textContent = 'Present';
+                attendanceStatusElement.className = 'font-bold text-green-500';
+            }, 2000);
+        }
+
+        function showManageClassesModal() {
+            alert('Class management feature coming soon!');
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
